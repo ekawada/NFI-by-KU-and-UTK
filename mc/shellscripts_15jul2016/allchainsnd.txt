@@ -1,0 +1,1 @@
+~/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=~/stan/nfi/rdump/rdump0.R init=0.1 output file=/scratch365/qread/stan/jun2016c/bin0chain1.csv

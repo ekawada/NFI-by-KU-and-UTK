@@ -1,0 +1,15 @@
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump0.R init=0.1 output file=$SCRATCH/stanoutput/1/bin0chain1.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump0.R init=0.1 output file=$SCRATCH/stanoutput/2/bin0chain2.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump0.R init=0.1 output file=$SCRATCH/stanoutput/3/bin0chain3.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump1.R init=0.1 output file=$SCRATCH/stanoutput/4/bin1chain1.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump1.R init=0.1 output file=$SCRATCH/stanoutput/5/bin1chain2.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump1.R init=0.1 output file=$SCRATCH/stanoutput/6/bin1chain3.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump2.R init=0.1 output file=$SCRATCH/stanoutput/7/bin2chain1.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump2.R init=0.1 output file=$SCRATCH/stanoutput/8/bin2chain2.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump2.R init=0.1 output file=$SCRATCH/stanoutput/9/bin2chain3.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump3.R init=0.1 output file=$SCRATCH/stanoutput/10/bin3chain1.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump3.R init=0.1 output file=$SCRATCH/stanoutput/11/bin3chain2.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump3.R init=0.1 output file=$SCRATCH/stanoutput/12/bin3chain3.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump4.R init=0.1 output file=$SCRATCH/stanoutput/13/bin4chain1.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump4.R init=0.1 output file=$SCRATCH/stanoutput/14/bin4chain2.csv
+/mnt/home/qdr/nfi/June2016b sample num_samples=20000 num_warmup=10000 thin=10 data file=/mnt/home/qdr/nfi/rdump/rdump4.R init=0.1 output file=$SCRATCH/stanoutput/15/bin4chain3.csv
