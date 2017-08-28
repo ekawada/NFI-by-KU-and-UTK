@@ -19,6 +19,12 @@ ba.to5 <- function(ba1, ba2, years){
   return(ba5)
 }
 
+ba.to.x <- function(ba1, ba2, years, x){
+  rate <-  (ba2 / ba1 )^(1/years) - 1
+  bax <- ba1 * (1 + rate)^x
+  return(bax)
+}
+
 # Re run growth rate calculation to make into a long vector.
 growthrate <- dlply(tru, .(newtreeID), function(x) {
   x <- x[order(x$year), ]
@@ -26,17 +32,15 @@ growthrate <- dlply(tru, .(newtreeID), function(x) {
   ba_begin <- x$ba[-nrow(x)]
   ba_end <- x$ba[-1]
   diff_year <- diff(x$year)
-  ba_5 <- ba.to5(ba_begin, ba_end, diff_year)
-  list(treeID=x$newtreeID[1], grate=ba_5 - ba_begin, year=x$year[-1])
+  ba_1 <- ba.to.x(ba_begin, ba_end, diff_year, 1)
+  list(treeID=x$newtreeID[1], grate=ba_1 - ba_begin, year=x$year[-1])
 },
 .progress='text')
 
 growthrate_longform <- do.call('rbind', lapply(growthrate, function(x) ifelse(length(x$grate) > 0, as.data.frame(x), data.frame(treeID=integer(0),grate=numeric(0),year=integer(0)))))
 growthrate2 <- lapply(growthrate, do.call, what='cbind')
-growthrate_longform <- growthrate2[[1]]
-for (i in 2:length(growthrate2)) if(ncol(growthrate2[[i]])==3) growthrate_longform <- rbind(growthrate_longform, growthrate2[[i]])
-#save(growthrate_longform, file = './Data/grlongform.r')
-#load('./Data/grlongform.r')
+growthrate2 <- Filter(function(x) ncol(x) == 3, growthrate2)
+growthrate_longform <- do.call('rbind', growthrate2)
 
 # Get rid of anomalously large growth rate values.
 #growthrate_longform <- growthrate_longform[growthrate_longform[,2] < 20 & growthrate_longform[,2] > -20, ]
@@ -78,7 +82,47 @@ traits_stan <- sapply(traits, function(x) (x - mean(x))/sd(x))
 
 
 ##### here add the bins
+# For each year, now get total GDD and total Precip from that year and the previous 4. Add them together.
+gdd_sum_byyear <- dlply(gddprecip_new,.(plotID),function(x) {
+  gddsum <- numeric(nrow(x)-4)
+  for (i in 5:nrow(x)) gddsum[i-4] <- sum(x$gddnew[(i-4):i])
+  data.frame(plotID=x$plotID[1], year=x$year[5:nrow(x)], gddsum=gddsum)
+}, .progress='text')
+precip_sum_byyear <- dlply(gddprecip_new,.(plotID),function(x) {
+  precipsum <- numeric(nrow(x)-4)
+  for (i in 5:nrow(x)) precipsum[i-4] <- sum(x$precipnew[(i-4):i]) #changed this to average across years, otherwise odd for binning
+  data.frame(plotID=x$plotID[1], year=x$year[5:nrow(x)], precipsum=precipsum)
+}, .progress='text')
+temp_ave_byyear <- dlply(tempave,.(flateid),function(x) {
+  avetemp <- numeric(nrow(x)-4)
+  for (i in 5:nrow(x)) avetemp[i-4] <- mean(x$temp_ave[(i-4):i])
+  data.frame(plotID=x$flateid[1], year=x$aar[5:nrow(x)], avetemp=avetemp)
+}, .progress='text')
 
+gdd_sum_byyear <- do.call('rbind', gdd_sum_byyear)
+precip_sum_byyear <- do.call('rbind', precip_sum_byyear)
+temp_ave_byyear <- do.call('rbind', temp_ave_byyear)
+
+
+# 2. Stratify the input data into 3 or 4 bins based on mean annual temp and precip (to match with traits).
+# 26 Aug 2016: Changed to 3x3 per.
+
+temp_means <- ddply(temp_ave_byyear, .(plotID), summarize, temp=mean(avetemp, na.rm=T)) #had to remove NAS here. Maybe remove NAs in climatemissing instead?
+temp_means$bin <- Hmisc::cut2(temp_means$temp, g=3)
+temp_means$bint <- factor(temp_means$bin, labels=1:3)
+temp_grps <- temp_means[,c('plotID','temp','bint')]
+
+precip_means <- ddply(precip_sum_byyear, .(plotID), summarize, precip=mean(precipsum, na.rm=T)) #had to remove NAS here. Maybe remove NAs in climatemissing instead?
+precip_means$bin <- Hmisc::cut2(precip_means$precip, g=3)
+precip_means$binp <- factor(precip_means$bin, labels=4:6)
+precip_grps <- precip_means[,c('plotID','precip','binp')]
+
+# create bins of both labels
+clim_grps <- left_join(temp_grps, precip_grps) %>% mutate(bingrp = paste(bint, binp))
+grp_levels <- sort(unique(clim_grps$bingrp))
+clim_grps$bingrp <- factor(clim_grps$bingrp , levels = grp_levels, labels=1:9)
+# level order is: low temp low precip, low temp mid precip, etc etc
+clim_grps <- clim_grps[,c('plotID','bingrp')]
 
 allstandata <- cbind(tru, areaxdist)
 allstandata <- merge(allstandata, as.data.frame(growthrate_longform), all.x=TRUE) # Adds growth rate.
@@ -88,7 +132,7 @@ allstandata <- merge(allstandata, gddprecip_new, all.x=TRUE)
 allstandata <- merge(allstandata, clim_grps, all.x=TRUE) # Adds clim binning (1=T1P1, 2=T1P2, 3=T1P3, 4=T2P1, 5=T2P2, 6=T2P3, 7=T3P1, 8=T3P2, 9=T3P3)
 #allstandata <- merge(allstandata, traits[,c(1,2,6)], all.x=TRUE) # Adds PC1 and PC2 for traits.
 
-allstandata <- allstandata[, c("plotID", "plotnum", "year", "newtreeID", "dbh", "editedspnum", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "growthrate", "gddsum", "precipsum", "bingrp")]
+allstandata <- allstandata[, c("plotID", "plotnum", "year", "newtreeID", "dbh", "editedspnum", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "ba", "bainc", "gddnew", "precipnew", "bingrp")]
 
 # get rid of NAs in data.
 allstandata <- allstandata[complete.cases(allstandata), ]
@@ -174,8 +218,8 @@ sla_binned <- sla_binned[order(sla_binned$species, sla_binned$bingrp),]
 ## Read in try data for sla (supp) and ssd
 trytraits <- read.csv('./Data/trait data/traitclim.csv') #read in all sla and ssd try traits from traitlocsforbin_28082016.R
 # spit into sla and ssd
-try_sla <- trytraits %>% filter(TraitName==('Leaf area per leaf dry mass (specific leaf area, SLA)'))
-try_ssd <- trytraits %>% filter(TraitName==('Stem dry mass per stem fresh volume (stem specific density, SSD, wood density)')) 
+try_sla <- trytraits %>% filter(grepl('Specific leaf area', DataName))
+try_ssd <- trytraits %>% filter(grepl('Wood density', DataName)) 
 
 #Create corresponding climate bins in TRY data
 tcuts <- Hmisc::cut2(temp_means$temp, g=3, onlycuts=T)
