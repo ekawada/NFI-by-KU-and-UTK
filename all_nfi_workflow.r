@@ -79,23 +79,7 @@ tr <- tr %>%
          coord_y = distance * sin(azimuth360 * pi/180))
 
 
-###############################################
-# 
-# # Check locations of trees (takes a minute or 2)
-# tr_loc <- tr %>%
-#   group_by(treeID) %>%
-#   summarize(n_plot = length(unique(plotID)),
-#             n_locn = nrow(unique(cbind(distance, azimuth))))
-# 
-# table(tr_loc$n_locn)
-# 
-# # Find plots that have discrepancies
-# bad_trees <- tr_loc$treeID[tr_loc$n_locn > 1]
-# bad_plots <- unique(tr$plotID[which(tr$treeID %in% bad_trees)]) # There are 3395 such plots so obviously we cannot throw the plots out.
-#
-###############################################
-
-# Try to find the distance in between the multiple location trees. If the distance is small, "merge" the locations. Otherwise if it is big, flag it.
+# Try to find the distance in between the multiple location trees. If the distance is small, "merge" the locations, aka just ignore the fact that the tree moved slightly since it is probably a measurement error. Otherwise if it is big, flag it.
 
 # Calculate distance matrix for all the trees.
 tr_distmats <- tr %>%
@@ -225,7 +209,7 @@ get_areaxdist <- function(dat) {
   return(cbind(treeID = dat$treeID, res))
 }
 
-save.image('~/tempwksp.RData')
+
 
 # Calculate area x distance for each tree (takes 2 hours)
 areaxdist <- tru %>% 
@@ -235,11 +219,25 @@ areaxdist <- tru %>%
 # Merge the calculated area x distance values with the main dataframe.
 tru <- left_join(tru, areaxdist)
 
+save.image('~/tempwksp.RData')
 
 # II. Processing climate data ---------------------------------------------
 
-load('./Data/nfi climate data/klima2016-01-05.RData')
+load('./Data/nfi climate data/klima2016-01-05.RData') # Add new klima data from Clara when it comes in, hopefully through 2015.
 
 # Calculate annual growing degree day sums and precipitation sums.
 
+# Create climate bins. 3x3 temperature x precipitation.
 
+# III. Processing trait data ----------------------------------------------
+
+# These two data frames have already been processed elsewhere by CC.
+
+## sampled sla data from Norway, 2015
+sla <- read.csv('Data/trait data/indtraits_nor.csv')
+
+# TRY traits, with climate information already included.
+trytraits <- read.csv('Data/trait data/traitclim.csv') #read in all sla and ssd try traits from traitlocsforbin_28082016.R
+# split into sla and ssd
+try_sla <- trytraits %>% filter(grepl('Specific leaf area', DataName))
+try_ssd <- trytraits %>% filter(grepl('Wood density', DataName)) 
