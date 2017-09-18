@@ -217,17 +217,52 @@ areaxdist <- tru %>%
   do(get_areaxdist(.))
 
 # Merge the calculated area x distance values with the main dataframe.
+areaxdist[areaxdist == Inf] <- 0
 tru <- left_join(tru, areaxdist)
 
 save.image('~/tempwksp.RData')
 
 # II. Processing climate data ---------------------------------------------
 
-load('./Data/nfi climate data/klima2016-01-05.RData') # Add new klima data from Clara when it comes in, hopefully through 2015.
+load('./Data/nfi climate data/ClimNewChelsea.RData') # This is the new climate data from Clara
+# Edited 18 Sep to use the corrected temperature and precip. Use the average daily precip rather than the sum.
 
 # Calculate annual growing degree day sums and precipitation sums.
+days <- c(31,28.25,31,30,31,30,31,31,30,31,30,31)
+threshold <- 0
+
+# Growing degree day threshold is 0 C. Multiply average monthly degrees above 0 C by the number of days in each month to get that month's GDD.
+# This summarize operation takes a while to run.
+gddprecip <- clim.chelsea %>%
+  rename(plotID = flateid) %>%
+   filter(year >= 1986) %>%
+   mutate(degrees = (temp.corr - threshold) * (temp.corr - threshold > 0)) %>%
+   group_by(plotID, year) %>%
+   summarize(gdd = sum(degrees * days),
+             precip = mean(prep))
+
+# Get average gdd and precip of each plot across all years
+gddprecip_allyears <- gddprecip %>%
+  ungroup() %>%
+  group_by(plotID) %>%
+  summarize(gdd = mean(na.omit(gdd)), precip = mean(na.omit(precip)))
 
 # Create climate bins. 3x3 temperature x precipitation.
+temp_cuts <- quantile(gddprecip_allyears$gdd, probs = c(1/3, 2/3))
+precip_cuts <- quantile(gddprecip_allyears$precip, probs = c(1/3, 2/3))
+
+gddprecip_allyears <- mutate(gddprecip_allyears, gddbin = 1, precipbin = 1)
+gddprecip_allyears$gddbin[gddprecip_allyears$gdd > temp_cuts[1]] <- 2
+gddprecip_allyears$gddbin[gddprecip_allyears$gdd > temp_cuts[2]] <- 3
+gddprecip_allyears$precipbin[gddprecip_allyears$precip > precip_cuts[1]] <- 2
+gddprecip_allyears$precipbin[gddprecip_allyears$precip > precip_cuts[2]] <- 3
+gddprecip_allyears <- mutate(gddprecip_allyears, climbin = interaction(gddbin, precipbin))
+
+tru <- tru %>%
+  left_join(gddprecip) %>%
+  left_join(gddprecip_allyears[,c('plotID','gddbin','precipbin', 'climbin')])
+
+save.image('~/tempwksp.RData')
 
 # III. Processing trait data ----------------------------------------------
 
@@ -241,3 +276,43 @@ trytraits <- read.csv('Data/trait data/traitclim.csv') #read in all sla and ssd 
 # split into sla and ssd
 try_sla <- trytraits %>% filter(grepl('Specific leaf area', DataName))
 try_ssd <- trytraits %>% filter(grepl('Wood density', DataName)) 
+
+
+#add rows to complete bins
+sla_bin <- inner_join(sla, gddprecip_allyears[,c('plotID', 'climbin')]) %>% group_by(species, climbin) %>% summarise(SLA=mean(SLA_m))
+
+#Create corresponding climate bins in TRY data
+
+# Get average temp and precip of each plot across all years
+temp_prec_means <- klima %>%
+  group_by(plotID, year) %>%
+  summarize(temp_yrmean = mean(temp_abs), precip_yrmean = sum(precip_abs)) %>%
+  ungroup %>% group_by(plotID) %>%
+  summarize(temp_overallmean = mean(na.omit(temp_yrmean)), precip_overallmean = mean(na.omit(precip_yrmean)))
+
+# Create climate bins. 3x3 temperature x precipitation.
+temp_cuts <- quantile(temp_prec_means$temp, probs = c(1/3, 2/3))
+precip_cuts <- quantile(temp_prec_means$precip, probs = c(1/3, 2/3))
+
+tcuts <- Hmisc::cut2(temp_prec_means$temp, g=3, onlycuts=T)
+pcuts <- Hmisc::cut2(temp_prec_means$precip, g=3, onlycuts=T)
+
+try_ssd$tcut <- Hmisc::cut2(try_ssd$temp, cuts=tcuts, minmax=F) 
+try_ssd$bint <- factor(try_ssd$tcut, labels=1:3)
+try_ssd$pcut <- Hmisc::cut2(try_ssd$precip, cuts=pcuts, minmax=F) 
+try_ssd$binp <- factor(try_ssd$pcut, labels=4:6)
+
+try_sla$tcut <- Hmisc::cut2(try_sla$temp, cuts=tcuts, minmax=F) 
+try_sla$bint <- factor(try_sla$tcut, labels=2:3) # we only have bins 2:3 in try data
+try_sla$pcut <- Hmisc::cut2(try_sla$precip, cuts=pcuts, minmax=F)
+try_sla$binp <- factor(try_sla$pcut, labels=4:5) # we only have bins 1:2 (=4:5) in try data
+
+# IV. Binning and exporting to rdump --------------------------------------
+
+# 1. Cut everything into bins
+
+# 2. Get rid of negative basal area increments or convert to zeroes
+
+# 3. Do subsampling if necessary
+
+# 4. Export to rdump files
