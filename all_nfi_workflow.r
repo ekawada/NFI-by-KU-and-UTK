@@ -19,32 +19,29 @@
 
 # 1. load Clara's climate data
 # 2. calculate yearly sums of growing degree days and precipitation for each plot
+# 3. Bin by 3x3 temperature (or gdd) and precipitation
 
-# !!! Note that the "older" climate data goes up to a more recent date than Clara's newer climate data. We can try to get Clara to update us with the most recent data.
 
 ### III. Processing trait data
 
-# 1. Combine field-collected with TRY data to get maximum coverage
-# 2. Do a PCA if that's what we end up using. Or just use SLA and SSD.
+# 1. Combine field-collected with TRY data to get maximum coverage.
+# 2. Interpolate missing bins to get both an overall mean, and a by-bin mean, for each species and trait (SLA and SSD)
 
-### IV. Create bins for analyses that require binning
 
-# 1. Bin 3x3 temperature by precipitation
-# 2. Bin traits by the same cutoffs.
+### IV. Create rdumps
 
-### V. Subsample for neighbor trait model
+# 1. If necessary, for all tree species occurring in >500 plots, sample down to 500 plots for neighbor trait model (there will be 7 rdumps for this model)
+# 2. rdump for each of the 9 temperature bins for the individual trait model.
 
-# 1. For all tree species that occur in >500 plots, sample down to 500 plots.
+### V. Fit the neighbor trait model
 
-### VI. Fit the neighbor trait model
+# Stan scripts to use: GitHub/mc/mc_18sep2017/mc1_nullmodel.stan (and so forth)
+# Upload appropriate rdumps and run model on ND cluster
 
-# Stan scripts to use: stan/nfi/mc1_nullmodel.stan (up to mc5)
-# Create appropriate rdumps and run model on ND cluster
+### VI. Fit the (simpler) focal tree trait model
 
-### VII. Fit the (simpler) focal tree trait model
-
-# Stan script to use: vectorizednfimodel2.stan
-# Create appropriate rdumps and run model on ND cluster
+# Stan script to use: GitHub/mc/mc_18sep2017/individualmodel.stan
+# Upload appropriate rdumps and run model on ND cluster
 
 
 # I. Processing tree data -------------------------------------------------
@@ -229,9 +226,9 @@ load('./Data/nfi climate data/ClimNewChelsea.RData') # This is the new climate d
 
 # Calculate annual growing degree day sums and precipitation sums.
 days <- c(31,28.25,31,30,31,30,31,31,30,31,30,31)
-threshold <- 0
+threshold <- 5
 
-# Growing degree day threshold is 0 C. Multiply average monthly degrees above 0 C by the number of days in each month to get that month's GDD.
+# Growing degree day threshold is 5 C (recommended by Clara). Multiply average monthly degrees above threshold by the number of days in each month to get that month's GDD.
 # This summarize operation takes a while to run.
 gddprecip <- clim.chelsea %>%
   rename(plotID = flateid) %>%
@@ -258,8 +255,27 @@ gddprecip_allyears$precipbin[gddprecip_allyears$precip > precip_cuts[1]] <- 2
 gddprecip_allyears$precipbin[gddprecip_allyears$precip > precip_cuts[2]] <- 3
 gddprecip_allyears <- mutate(gddprecip_allyears, climbin = interaction(gddbin, precipbin))
 
+# Find the GDD and precip that correspond to the actual growth interval, not just the single year.
+# Average gdd by year and average precip for each of the years.
+
+get_climate_interval <- function(dat) {
+  dat_i <- dat[order(dat$year), ]
+  gdd_interval <- rep(NA, nrow(dat_i))
+  precip_interval <- rep(NA, nrow(dat_i))
+  for (y in 2:nrow(dat_i)) {
+    gddprec_subset <- subset(gddprecip, plotID == dat_i$plotID[1] & year > dat_i$year[y-1] & year <= dat_i$year[y])
+    gdd_interval[y] <- mean(gddprec_subset$gdd)
+    precip_interval[y] <- mean(gddprec_subset$precip)
+  }
+  data.frame(gdd = gdd_interval, precip = precip_interval, year = dat$year)
+}
+
+tr_clim_inc <- tru %>%
+  group_by(treeID) %>%
+  do(get_climate_interval(.))
+
 tru <- tru %>%
-  left_join(gddprecip) %>%
+  left_join(tr_clim_inc %>% ungroup %>% filter(!is.na(gdd), !is.na(precip))) %>%
   left_join(gddprecip_allyears[,c('plotID','gddbin','precipbin', 'climbin')])
 
 save.image('~/tempwksp.RData')
@@ -269,13 +285,17 @@ save.image('~/tempwksp.RData')
 # These two data frames have already been processed elsewhere by CC.
 
 ## sampled sla data from Norway, 2015
-sla <- read.csv('Data/trait data/indtraits_nor.csv')
+slainds <- read.csv('Data/trait data/indtraits_nor.csv')
+
+#bin based on plot location data
+sla_ind <- left_join(slainds, gddprecip_allyears) %>% group_by(species, bingrp) %>% dplyr::summarise(SLA=mean(SLA_m))
 
 # TRY traits, with climate information already included.
 trytraits <- read.csv('Data/trait data/traitclim.csv') #read in all sla and ssd try traits from traitlocsforbin_28082016.R
 # split into sla and ssd
 try_sla <- trytraits %>% filter(grepl('Specific leaf area', DataName))
 try_ssd <- trytraits %>% filter(grepl('Wood density', DataName)) 
+
 
 
 #add rows to complete bins
