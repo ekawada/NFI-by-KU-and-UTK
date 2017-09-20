@@ -283,56 +283,111 @@ save.image('~/tempwksp.RData')
 # III. Processing trait data ----------------------------------------------
 
 # These two data frames have already been processed elsewhere by CC.
-
-## sampled sla data from Norway, 2015
-slainds <- read.csv('Data/trait data/indtraits_nor.csv')
-
-#bin based on plot location data
-sla_ind <- left_join(slainds, gddprecip_allyears) %>% group_by(species, bingrp) %>% dplyr::summarise(SLA=mean(SLA_m))
-
-# TRY traits, with climate information already included.
-trytraits <- read.csv('Data/trait data/traitclim.csv') #read in all sla and ssd try traits from traitlocsforbin_28082016.R
-# split into sla and ssd
-try_sla <- trytraits %>% filter(grepl('Specific leaf area', DataName))
-try_ssd <- trytraits %>% filter(grepl('Wood density', DataName)) 
-
-
-
-#add rows to complete bins
-sla_bin <- inner_join(sla, gddprecip_allyears[,c('plotID', 'climbin')]) %>% group_by(species, climbin) %>% summarise(SLA=mean(SLA_m))
-
-#Create corresponding climate bins in TRY data
-
-# Get average temp and precip of each plot across all years
-temp_prec_means <- klima %>%
-  group_by(plotID, year) %>%
-  summarize(temp_yrmean = mean(temp_abs), precip_yrmean = sum(precip_abs)) %>%
-  ungroup %>% group_by(plotID) %>%
-  summarize(temp_overallmean = mean(na.omit(temp_yrmean)), precip_overallmean = mean(na.omit(precip_yrmean)))
-
-# Create climate bins. 3x3 temperature x precipitation.
-temp_cuts <- quantile(temp_prec_means$temp, probs = c(1/3, 2/3))
-precip_cuts <- quantile(temp_prec_means$precip, probs = c(1/3, 2/3))
-
-tcuts <- Hmisc::cut2(temp_prec_means$temp, g=3, onlycuts=T)
-pcuts <- Hmisc::cut2(temp_prec_means$precip, g=3, onlycuts=T)
-
-try_ssd$tcut <- Hmisc::cut2(try_ssd$temp, cuts=tcuts, minmax=F) 
-try_ssd$bint <- factor(try_ssd$tcut, labels=1:3)
-try_ssd$pcut <- Hmisc::cut2(try_ssd$precip, cuts=pcuts, minmax=F) 
-try_ssd$binp <- factor(try_ssd$pcut, labels=4:6)
-
-try_sla$tcut <- Hmisc::cut2(try_sla$temp, cuts=tcuts, minmax=F) 
-try_sla$bint <- factor(try_sla$tcut, labels=2:3) # we only have bins 2:3 in try data
-try_sla$pcut <- Hmisc::cut2(try_sla$precip, cuts=pcuts, minmax=F)
-try_sla$binp <- factor(try_sla$pcut, labels=4:5) # we only have bins 1:2 (=4:5) in try data
+load('Data/traitsbinned.r')
 
 # IV. Binning and exporting to rdump --------------------------------------
 
+# For "individual" model we need to run it for the 9 bins, for "neighbor" models we need to run it for the 7 species but not birch.
+# For "neighbor" models we need a mean trait value by species.
+
+trait_all <- full_join(sla_all, ssd_all) %>% group_by(species) %>% summarize(SLA=mean(SLA), SSD=mean(SSD))
+
+# Get rid of negative values in growth rate
+allstandata <- tru
+allstandata$bainc[allstandata$bainc < 0] <- 0
+
+# Scale data and get rid of rows and columns we don't need
+allstandata <- allstandata %>%
+  mutate(gdd = gdd/1000) %>%
+  filter(partialPlotClass == 0) %>%
+  select(treeID, plotID, year, editedspecies, ba, bainc, area_1, area_2, area_3, area_4, area_5, area_6, area_7, area_8, gdd, precip, climbin) %>%
+  filter(complete.cases(.))
+
+# Create trait matrices that match the species names.
+
+# Latin names matching codes
+latin_name_order <- spcode$sp_lat[match(sp_lookup_table$code, spcode$code)]
+trait_means <- trait_all[match(latin_name_order, trait_all$species), c('SLA','SSD')]
+trait_means[8,] <- apply(trait_means[3:7,],2,mean) # average deciduous tree
+
+trait_by_bin <- split(full_join(sla_all, ssd_all), sla_all$bingrp)
+trait_by_bin <- lapply(trait_by_bin, function(x) x[match(latin_name_order, x$species), c('SLA', 'SSD')])
+trait_by_bin <- lapply(trait_by_bin, function(x) {
+  x[8,] <- apply(x[3:7,], 2, mean)
+  return(x)
+})
+
 # 1. Cut everything into bins
 
-# 2. Get rid of negative basal area increments or convert to zeroes
+# Bin by species
+allstandata_byspecies <- allstandata %>% 
+  filter(editedspecies != 8) %>%
+  split(f = .$editedspecies, drop = TRUE)
+
+# Bin by climate
+allstandata_bybin <- allstandata %>%
+  mutate(bingrp = factor(climbin, labels=1:9)) %>%
+  split(f = .$climbin)
+
+# Convert treeID, plotID, and species to factors and create list for rdump
+allstandata_byspecies <- lapply(allstandata_byspecies, function(x) {
+  x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
+  x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
+  x$speciesID <- as.integer(factor(x$editedspecies, labels = 1:length(unique(x$editedspecies))))
+  with(x, list(N = nrow(x),
+               Nspp = 8,
+               Nyear = 20,
+               Nplot = max(plotID),
+               Ntree = max(treeID),
+               targetsp = speciesID[1],
+               ba = ba,
+               bainc = bainc,
+               year = year,
+               plot = plotID,
+               tree = treeID,
+               gdd = gdd,
+               precip = precip,
+               areaxdist = as.matrix(x[,c('area_1','area_2','area_3','area_4','area_5','area_6','area_7','area_8')]),
+               trait = as.matrix(trait_means)))
+})
+
+allstandata_bybin <- lapply(allstandata_bybin, function(x) {
+  x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
+  x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
+  x$speciesID <- as.integer(factor(x$editedspecies, labels = 1:length(unique(x$editedspecies))))
+  with(x, list(N = nrow(x),
+               Nspp = 8,
+               Nyear = 20,
+               Nplot = max(plotID),
+               ba = ba,
+               bainc = bainc,
+               year = year,
+               plot = plotID,
+               tree = treeID,
+               gdd = gdd,
+               precip = precip,
+               areaxdist = as.matrix(x[,c('area_1','area_2','area_3','area_4','area_5','area_6','area_7','area_8')]),
+               SLA = trait_by_bin[[x$bingrp[1]]][,1],
+               SSD = trait_by_bin[[x$bingrp[1]]][,2]
+              ))
+})
+
 
 # 3. Do subsampling if necessary
 
+# for now don't do any.
+
 # 4. Export to rdump files
+
+library(rstan)
+fpdump <- 'Cluster/stan/rdumps2017Sep'
+
+for (i in 1:length(allstandata_bybin)) {
+  names_i <- names(allstandata_bybin[[i]])
+  with(allstandata_bybin[[i]], stan_rdump(names_i, file = file.path(fpdump, paste0('data_bin', i, '.R'))))
+}
+
+for (i in 1:length(allstandata_byspecies)) {
+  names_i <- names(allstandata_byspecies[[i]])
+  with(allstandata_byspecies[[i]], stan_rdump(names_i, file = file.path(fpdump, paste0('data_species', i, '.R'))))
+}
