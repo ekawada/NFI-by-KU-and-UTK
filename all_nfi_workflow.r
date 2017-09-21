@@ -363,7 +363,7 @@ allstandata_bybin <- lapply(allstandata_bybin, function(x) {
                bainc = bainc,
                year = year,
                plot = plotID,
-               tree = treeID,
+               species = speciesID,
                gdd = gdd,
                precip = precip,
                areaxdist = as.matrix(x[,c('area_1','area_2','area_3','area_4','area_5','area_6','area_7','area_8')]),
