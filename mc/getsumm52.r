@@ -9,16 +9,18 @@ trace_summ <- function(species, modelno) {
 	WAIC <- waic(mc_fit)
 	
 	# Make trace plots
+	library(bayesplot)
+	
 	par_list <- c('beta', 'alpha[1]', 'alpha[2]', 'alpha[3]', 'sigma_g', 'mu_alpha', 'sigma_alpha', 'lambda[1]', 'lambda[2]', 'lambda[3]', 'T')
 	pdf(paste0('./figs/', name, '_traceplots.pdf'), height = 6, width = 10)
-		print(traceplot(mc_fit, pars = par_list[1]))
-		print(traceplot(mc_fit, pars = par_list[2:4]))
-		print(traceplot(mc_fit, pars = par_list[5:7]))
+		print(mcmc_trace(as.array(mc_fit, pars = par_list[1])))
+		print(mcmc_trace(as.array(mc_fit, pars = par_list[2:4])))
+		print(mcmc_trace(as.array(mc_fit, pars = par_list[5:7])))
 	if (modelno>=3) {
-		print(traceplot(mc_fit, pars = par_list[8:10]))
+		print(mcmc_trace(as.array(mc_fit, pars = par_list[8:10])))
 	}
 	if (modelno>=4) {
-		print(traceplot(mc_fit, pars = par_list[11]))
+		print(mcmc_trace(as.array(mc_fit, pars = par_list[11])))
 	}
 	dev.off()
 	
@@ -38,7 +40,7 @@ trace_summ <- function(species, modelno) {
 
 
 sm <- expand.grid(s=1:7,m=1:5)
-for (i in 15:nrow(sm)) {
+for (i in 1:nrow(sm)) {
 	print(i)
 	trace_summ(species=sm[i,1], modelno=sm[i,2])
 }
