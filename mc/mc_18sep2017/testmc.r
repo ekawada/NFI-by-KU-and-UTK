@@ -10,3 +10,5 @@ mod2_stan <- stan_model(file = file.path(fp, 'mc2_neutralmodel.stan'))
 mod3_stan <- stan_model(file = file.path(fp, 'mc3_speciesmodel.stan'))
 mod4_stan <- stan_model(file = file.path(fp, 'mc4_traitmodelsimple.stan'))
 mod5_stan <- stan_model(file = file.path(fp, 'mc5_nichemodelsimple.stan'))
+
+indiv_stan_vector <- stan_model(file = file.path(fp, 'individualmodelvector.stan'))
