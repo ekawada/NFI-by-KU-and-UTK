@@ -30,6 +30,8 @@
 
 ### IV. Create rdumps
 
+### *** EDIT 30 JAN 2018: ADD SUBSAMPLING DOWN TO 500 PLOTS FOR ALL MODELS! ***
+
 # 1. If necessary, for all tree species occurring in >500 plots, sample down to 500 plots for neighbor trait model (there will be 7 rdumps for this model)
 # 2. rdump for each of the 9 temperature bins for the individual trait model.
 
@@ -330,10 +332,11 @@ allstandata_bybin <- allstandata %>%
   split(f = .$climbin)
 
 # Convert treeID, plotID, and species to factors and create list for rdump
+# COMMENT 30 JAN: All the species ID's might have been wrong before now!!!
 allstandata_byspecies <- lapply(allstandata_byspecies, function(x) {
   x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
   x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
-  x$speciesID <- as.integer(factor(x$editedspecies, labels = 1:length(unique(x$editedspecies))))
+  x$speciesID <- as.integer(x$editedspecies)
   with(x, list(N = nrow(x),
                Nspp = 8,
                Nyear = 20,
@@ -354,7 +357,7 @@ allstandata_byspecies <- lapply(allstandata_byspecies, function(x) {
 allstandata_bybin <- lapply(allstandata_bybin, function(x) {
   x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
   x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
-  x$speciesID <- as.integer(factor(x$editedspecies, labels = 1:length(unique(x$editedspecies))))
+  x$speciesID <- as.integer(x$editedspecies)
   with(x, list(N = nrow(x),
                Nspp = 8,
                Nyear = 20,
@@ -375,12 +378,12 @@ allstandata_bybin <- lapply(allstandata_bybin, function(x) {
 
 # 3. Do subsampling if necessary
 
-# for now don't do any.
+# for now don't do any. See below.
 
 # 4. Export to rdump files
 
 library(rstan)
-fpdump <- 'Cluster/stan/rdumps2017Sep'
+fpdump <- 'Cluster/stan/rdumps2018Jan'
 
 for (i in 1:length(allstandata_bybin)) {
   names_i <- names(allstandata_bybin[[i]])
@@ -390,4 +393,89 @@ for (i in 1:length(allstandata_bybin)) {
 for (i in 1:length(allstandata_byspecies)) {
   names_i <- names(allstandata_byspecies[[i]])
   with(allstandata_byspecies[[i]], stan_rdump(names_i, file = file.path(fpdump, paste0('data_species', i, '.R'))))
+}
+
+##################################################
+
+# 3b. (added 30 Jan 2018): subsample everything.
+
+# Bin by species
+allstandata_byspecies <- allstandata %>% 
+  filter(editedspecies != 8) %>%
+  split(f = .$editedspecies, drop = TRUE)
+
+# Bin by climate
+allstandata_bybin <- allstandata %>%
+  mutate(bingrp = factor(climbin, labels=1:9)) %>%
+  split(f = .$climbin)
+
+# Convert treeID, plotID, and species to factors and create list for rdump
+# Add subsampling
+allstandata_byspecies_sub <- lapply(allstandata_byspecies, function(x) {
+  n <- 500
+  uplot <- unique(x$plotID)
+  if (length(uplot) > n) {
+    useplots <- sample(uplot, n, replace = FALSE)
+    x <- x[x$plotID %in% useplots, ]
+  }
+  x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
+  x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
+  x$speciesID <- as.integer(x$editedspecies)
+  with(x, list(N = nrow(x),
+               Nspp = 8,
+               Nyear = 20,
+               Nplot = max(plotID),
+               Ntree = max(treeID),
+               targetsp = speciesID[1],
+               ba = ba,
+               bainc = bainc,
+               year = year,
+               plot = plotID,
+               tree = treeID,
+               gdd = gdd,
+               precip = precip,
+               areaxdist = as.matrix(x[,c('area_1','area_2','area_3','area_4','area_5','area_6','area_7','area_8')]),
+               trait = as.matrix(trait_means)))
+})
+
+allstandata_bybin_sub <- lapply(allstandata_bybin, function(x) {
+  n <- 500
+  uplot <- unique(x$plotID)
+  if (length(uplot) > n) {
+    useplots <- sample(uplot, n, replace = FALSE)
+    x <- x[x$plotID %in% useplots, ]
+  }
+  x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
+  x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
+  x$speciesID <- as.integer(as.integer(x$editedspecies))
+  with(x, list(N = nrow(x),
+               Nspp = 8,
+               Nyear = 20,
+               Nplot = max(plotID),
+               ba = ba,
+               bainc = bainc,
+               year = year,
+               plot = plotID,
+               species = speciesID,
+               gdd = gdd,
+               precip = precip,
+               areaxdist = as.matrix(x[,c('area_1','area_2','area_3','area_4','area_5','area_6','area_7','area_8')]),
+               SLA = trait_by_bin[[x$bingrp[1]]][,1],
+               SSD = trait_by_bin[[x$bingrp[1]]][,2]
+  ))
+})
+
+# 4b. Export to rdump files
+
+library(rstan)
+fpdump <- 'Cluster/stan/rdumps2018Jan'
+
+for (i in 1:length(allstandata_bybin_sub)) {
+  names_i <- names(allstandata_bybin_sub[[i]])
+  with(allstandata_bybin_sub[[i]], stan_rdump(names_i, file = file.path(fpdump, paste0('ssdata_bin', i, '.R'))))
+}
+
+for (i in 1:length(allstandata_byspecies_sub)) {
+  names_i <- names(allstandata_byspecies_sub[[i]])
+  with(allstandata_byspecies_sub[[i]], stan_rdump(names_i, file = file.path(fpdump, paste0('ssdata_species', i, '.R'))))
 }
