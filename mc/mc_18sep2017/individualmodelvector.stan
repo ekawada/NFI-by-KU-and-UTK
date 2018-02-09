@@ -1,3 +1,4 @@
+// Edit on 2018 Feb 09: remove zero bound on basal area increment
 // Model modified on 18 September 2017 to change the distribution on basal area increment to a truncated normal (accounts for zeroes)
 // Model modified on 02 September 2016 to vectorize some of the loops.
 // Model modified on 31 August 2016 to do most number crunching in the transformed parameters block, also to try to make things run faster.
@@ -13,7 +14,7 @@ data {
 	int plot[N];		// Plot ID for each measurement
 	int species[N];		// Species ID for each measurement (1-7 + 8 as unknown)
 	real<lower=0> ba[N];			// Basal area (cm2 / 100) for each measurement
-	real<lower=0> bainc[N];			// Basal area increment (cm2) for each measurement
+	real bainc[N];			// Basal area increment (cm2) for each measurement
 	real<lower=0> gdd[N];			// Growing degree days for each measurement
 	real<lower=0> precip[N];		// Yearly precipitation for each measurement
 	
@@ -48,7 +49,7 @@ transformed parameters {
 
 model {
 	
-	// Likelihood. Vectorize. Truncation should work because bainc has lower=0.
+	// Likelihood. Vectorize. 
 	bainc ~ normal(mu, sigma_i);
 	
 	  

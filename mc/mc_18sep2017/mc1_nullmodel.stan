@@ -1,5 +1,6 @@
 // Model 1: Null Model with all interaction coefficients set to zero
 // Edited 18 Sep 2017 to include truncated normal.
+// Edit on 2018 Feb 09: remove zero bound on basal area increment
 
 data {
 	int N; 			// Number of measurements for target species in dataset
@@ -12,7 +13,7 @@ data {
 	int plot[N];		// Plot ID for each measurement
 	int tree[N];		// Tree ID for each measurement
 	real<lower=0> ba[N];		// Basal area (cm2 / 100) for each measurement
-	real<lower=0> bainc[N];		// Basal area increment (cm2) for each measurement
+	real bainc[N];		// Basal area increment (cm2) for each measurement
 	real<lower=0> gdd[N];		// Growing degree days for each measurement
 	real<lower=0> precip[N];	// Yearly precipitation for each measurement
 	
@@ -46,7 +47,7 @@ transformed parameters {
 model {
 	// Likelihood
 	for (i in 1:N) {
-		bainc[i] ~ normal(mu[i], sigma_g) T[0,];
+		bainc[i] ~ normal(mu[i], sigma_g);
 	}
 	  
 	// Priors

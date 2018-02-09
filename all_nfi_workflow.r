@@ -294,9 +294,11 @@ load('Data/traitsbinned.r')
 
 trait_all <- full_join(sla_all, ssd_all) %>% group_by(species) %>% summarize(SLA=mean(SLA), SSD=mean(SSD))
 
-# Get rid of negative values in growth rate
 allstandata <- tru
-allstandata$bainc[allstandata$bainc < 0] <- 0
+
+# Get rid of negative values in growth rate
+# EDIT 09 FEB 2018: DON'T GET RID OF THE NEGATIVE VALUES ANY MORE!
+#allstandata$bainc[allstandata$bainc < 0] <- 0
 
 # Scale data and get rid of rows and columns we don't need
 allstandata <- allstandata %>%
@@ -383,7 +385,7 @@ allstandata_bybin <- lapply(allstandata_bybin, function(x) {
 # 4. Export to rdump files
 
 library(rstan)
-fpdump <- 'Cluster/stan/rdumps2018Jan'
+fpdump <- 'Cluster/stan/rdumps2018Feb'
 
 for (i in 1:length(allstandata_bybin)) {
   names_i <- names(allstandata_bybin[[i]])
@@ -398,6 +400,8 @@ for (i in 1:length(allstandata_byspecies)) {
 ##################################################
 
 # 3b. (added 30 Jan 2018): subsample everything.
+
+set.seed(12321)
 
 # Bin by species
 allstandata_byspecies <- allstandata %>% 
@@ -468,7 +472,7 @@ allstandata_bybin_sub <- lapply(allstandata_bybin, function(x) {
 # 4b. Export to rdump files
 
 library(rstan)
-fpdump <- 'Cluster/stan/rdumps2018Jan'
+fpdump <- 'Cluster/stan/rdumps2018Feb'
 
 for (i in 1:length(allstandata_bybin_sub)) {
   names_i <- names(allstandata_bybin_sub[[i]])
