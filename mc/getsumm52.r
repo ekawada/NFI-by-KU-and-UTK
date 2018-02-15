@@ -70,3 +70,36 @@ trace_summ_indivmodel <- function(bin, nchains) {
 	summ <- summary(mc_fit, pars = c('beta_size', 'beta_temp', 'beta_prec', 'gamma', 'sigma_g', 'mu_alpha', 'sigma_alpha', 'lambda', 'alpha'))
 	save(summ, file = paste0('./summaries/bin', bin, '_summ.r'))
 }
+
+# edit 11 feb: make trace plots on fewer pages
+trace_summ_indiv1p <- function(bin, nchains) {
+	filenames <- paste0('bin', bin, 'samples', 1:nchains, '.csv')
+	library(rstan)
+	library(bayesplot)
+	fit_list <- list()
+	for (i in filenames) fit_list[[length(fit_list) + 1]] <- read_stan_csv(i)
+	mc_fit <- sflist2stanfit(fit_list)
+	
+	# Make trace plots
+	par_list <- c('lambda','beta_size','beta_temp','beta_prec','gamma', 'alpha[1]', 'alpha[2]', 'sigma_g','mu_alpha', 'sigma_alpha', 'mu[1]','mu[2]','sigma_i[1]','sigma_i[2]')
+	pdf(paste0('./figs/bin', bin,  '_traceplots.pdf'), height = 6, width = 10)
+		print(mcmc_trace(as.array(mc_fit, pars = par_list)))
+	dev.off()
+	
+	summ <- summary(mc_fit, pars = c('beta_size', 'beta_temp', 'beta_prec', 'gamma', 'sigma_g', 'mu_alpha', 'sigma_alpha', 'lambda', 'alpha'))
+	save(summ, file = paste0('./summaries/bin', bin, '_summ.r'))
+}
+
+#########################################################
+# load and read summaries of neighbor model (11 feb)
+
+sm <- expand.grid(s=1:7,m=1:5)
+summs <- waics <- list()
+for (i in 1:nrow(sm)) {
+	species=sm[i,1]
+	modelno=sm[i,2]
+	load(paste0('summaries/dat',species,'mod',modelno,'_summ.r'))
+	summs[[length(summs) + 1]] <- summ
+	waics[[length(waics) + 1]] <- WAIC
+}
+
