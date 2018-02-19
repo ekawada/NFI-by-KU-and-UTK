@@ -469,6 +469,39 @@ allstandata_bybin_sub <- lapply(allstandata_bybin, function(x) {
   ))
 })
 
+# Added 19 Feb. data for individual model with subsampling but no binning
+trait_forallbins <- trait_all[match(latin_name_order, trait_all$species), c('SLA','SSD')]
+trait_forallbins[8, ] <- apply(trait_forallbins[3:7, ], 2, mean)
+
+allbinsub <- function(x) {
+  n <- 1000
+  uplot <- unique(x$plotID)
+  if (length(uplot) > n) {
+    useplots <- sample(uplot, n, replace = FALSE)
+    x <- x[x$plotID %in% useplots, ]
+  }
+  x$treeID <- as.integer(factor(x$treeID, labels = 1:length(unique(x$treeID))))
+  x$plotID <- as.integer(factor(x$plotID, labels = 1:length(unique(x$plotID))))
+  x$speciesID <- as.integer(as.integer(x$editedspecies))
+  with(x, list(N = nrow(x),
+               Nspp = 8,
+               Nyear = 20,
+               Nplot = max(plotID),
+               ba = ba,
+               bainc = bainc,
+               year = year,
+               plot = plotID,
+               species = speciesID,
+               gdd = gdd,
+               precip = precip,
+               areaxdist = as.matrix(x[,c('area_1','area_2','area_3','area_4','area_5','area_6','area_7','area_8')]),
+               SLA = trait_forallbins$SLA,
+               SSD = trait_forallbins$SSD
+  ))
+}
+set.seed(777)
+allstandata_allbin_sub <- allbinsub(allstandata)
+
 # 4b. Export to rdump files
 
 library(rstan)
@@ -483,3 +516,5 @@ for (i in 1:length(allstandata_byspecies_sub)) {
   names_i <- names(allstandata_byspecies_sub[[i]])
   with(allstandata_byspecies_sub[[i]], stan_rdump(names_i, file = file.path(fpdump, paste0('ssdata_species', i, '.R'))))
 }
+
+with(allstandata_allbin_sub, stan_rdump(names(allstandata_allbin_sub), file = file.path(fpdump, 'ssdata_binall.R')))
