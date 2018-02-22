@@ -2,6 +2,74 @@
 
 library(ggplot2)
 library(dplyr)
+library(ggthemes)
+
+#### DISTRIBUTION FIGS ####
+
+tru <- read.csv('./Data/tree data/treused.csv')
+covariates <- read.csv('./Data/tree data/covariates.csv')
+spcode <- read.csv('./Data/tree data/nor_splist.csv')
+
+tru$basalarea <- pi*(tru$dbh/2000)^2
+plotba <- ddply(tru, .(plotID, year, species), summarize, basalarea = sum(basalarea, na.rm = TRUE), .progress = 'text')
+plotba <- merge(plotba, covariates)
+plotba$spname <- spcode$sp_lat[match(plotba$species, spcode$code)]
+plotba$sp_nor <- spcode$sp_nor[match(plotba$species, spcode$code)]
+plotbaCurrent <- subset(plotba, year >= 2009)
+
+spp <- c(1,10,30,32,50,40,53,52,31,55)
+spp <- c('Picea abies','Pinus sylvestris','Betula pubescens','Populus tremula','Alnus incana','Quercus','Sorbus aucuparia')
+speng <- c('Norway spruce', 'Scots pine', 'White birch', 'Aspen', 'Grey alder', 'Oak', 'Rowan', 'Pussy willow', 'Silver birch', 'Hazelnut')
+dat <- plotbaCurrent[plotbaCurrent$spname %in% spp,]
+dat$spname <- factor(dat$spname, levels = spp)
+
+no<-map_data("world", region="Norway(?!:Svalbard)")
+gg <- ggplot() 
+gg <- gg + geom_map(data=no, map=no, aes(map_id=region), color="darkgrey", fill="white", size=0.5)
+gg <- gg + geom_point(data=dat, aes(x=long, y=lat), color="black", fill="darkgrey", size=0.5, alpha=1/10) + 
+  coord_equal() + theme_bw() + theme(legend.position="none") + 
+  theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none') +
+  xlab("Longitude") + ylab("Latitude") + facet_wrap(~spname, ncol = 2) 
+gg
+
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS1.pdf', height=7,width=4,dpi=400)
+
+gg <- ggplot() 
+gg <- gg + geom_map(data=no, map=no, aes(map_id=region), color="darkgrey", fill="white", size=0.5)
+gg <- gg + geom_point(data=dat, aes(x=long, y=lat), color="black", fill="darkgrey", size=0.5, alpha=1/10) + 
+  coord_equal() + theme_bw() + theme(legend.position="none") + 
+  theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none') +
+  xlab("Longitude") + ylab("Latitude")
+gg
+
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig11.pdf', height=7,width=6,dpi=400)
+
+
+datd <- dat %>% group_by(long, lat, plotID) %>% filter(year == max(year)) %>% summarize(stems=n())
+no<-map_data("world", region="Norway(?!:Svalbard)")
+gg <- ggplot() 
+gg <- gg + geom_map(data=no, map=no, aes(map_id=region), color="darkgrey", fill="white")
+gg <- gg + geom_hex(stat="binhex", data=datd, aes(x=long, y=lat, col=stems), bins=50) +
+  coord_equal() + theme_bw() + theme(legend.position="none") +
+  scale_bar(lon = 20, lat = 59,
+            distance_lon = 50, distance_lat = 10,
+            distance_legend = 50, dist_unit = "km", orientation = FALSE) +
+  theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none') +
+  xlab("Longitude") + ylab("Latitude")+
+  scale_fill_gradient(low = "grey", high = "black")
+gg
+
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig1.pdf', height=6,width=8,dpi=400)
+
+
+#Older version with points
+gg <- gg + geom_point(data=datd, aes(x=long, y=lat, size=stems/1000), color='black', alpha=0.25) + 
+  coord_equal() + theme_bw() + theme(legend.position="none") +
+  scale_bar(lon = 20, lat = 59,
+            distance_lon = 50, distance_lat = 10,
+            distance_legend = 50, dist_unit = "km", orientation = FALSE) +
+  theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none') +
+  xlab("Longitude") + ylab("Latitude") 
 
 #### CLIMATE FIGS ####
 # Load summaries
@@ -39,7 +107,7 @@ names(binsumall)[4:8] <- c('q025','q25','q50','q75','q975')
 # Figures
 hl <- geom_hline(linetype='dotted', color='darkgrey', yintercept = 0)
 th <- theme_bw() + theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none')
-scm <- scale_color_manual(values = c('FALSE'='darkgrey','TRUE'="darkgreen"))
+scm <- scale_color_manual(values = c('FALSE'='darkgrey','TRUE'="black"))
 
 spnames <- c('P. abies','P. sylvestris','B. pubescens','P. tremula','Quercus sp.','A. incana','S. aucuparia','Other hardwood')
 spnumnames <- c('1'='P. abies','2'='P. sylvestris','3'='B. pubescens','4'='P. tremula','5'='Quercus sp.','6'='A. incana','7'='S. aucuparia','8'='Other hardwood')
@@ -67,7 +135,7 @@ pbetasize <- ggplot(subset(binsumall, grepl('beta_size', parname)), aes(y = q50,
   facet_grid(tempbin ~ precipbin, labeller=binlab) +
   coord_flip() 
 pbetasize
-#ggsave('~/Desktop/NFI manuscripts/Thesis Chapter/FigS4.pdf', height=8,width=8,dpi=400)
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS4.pdf', height=6,width=7,dpi=400)
 
 #Fig S2
 pbetatemp <- ggplot(subset(binsumall, grepl('beta_temp', parname)), aes(x=species, ymin=q025, y=q50, ymax=q975)) +
@@ -79,7 +147,7 @@ pbetatemp <- ggplot(subset(binsumall, grepl('beta_temp', parname)), aes(x=specie
   facet_grid(tempbin ~ precipbin, labeller=binlab) +
   coord_flip() 
 pbetatemp
-#ggsave('~/Desktop/NFI manuscripts/Thesis Chapter/FigS2.pdf', height=5,width=6,dpi=400)
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS2.pdf', height=6,width=7,dpi=400)
 
 #Fig S3
 pbetaprec <- ggplot(subset(binsumall, grepl('beta_prec', parname)), aes(x=species, ymin=q025, y=q50, ymax=q975)) +
@@ -92,7 +160,7 @@ pbetaprec <- ggplot(subset(binsumall, grepl('beta_prec', parname)), aes(x=specie
   coord_flip() 
 pbetaprec
 
-#ggsave('~/Desktop/NFI manuscripts/Thesis Chapter/FigS3.pdf', height=5,width=6,dpi=400)
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS3.pdf', height=6,width=7,dpi=400)
 
 
 #### COMPETITION COEFFICIENTS ####
@@ -117,8 +185,8 @@ pcompcoef <- ggplot(subset(binsumall, tempbin!='all' & grepl('lambda', parname))
   labs(y = 'Competition parameter estimate') +
   facet_grid(~ parname, labeller=labeller(parname=c('lambda' = ' ')))
 
-comps <- subset(binsumall, tempbin!='all' & grepl('lambda', parname))
-summary(lm(mean~tempbin*precipbin, data=comps))
+#comps <- subset(binsumall, tempbin!='all' & grepl('lambda', parname))
+#summary(lm(mean~tempbin*precipbin, data=comps))
 
 # ADD LINES CODE TO TRAIT AND COMP EFFECTS #
 library(gridExtra)
@@ -139,6 +207,7 @@ g<-gtable_add_grob(g, grobTree(textGrob(expression(paste(underline("Low Temperat
 
 grid.draw(g)   
 
+
 #Figure 4 Competition Coefficients
 plotobj <- pcompcoef + 
   scale_x_discrete(name= "Climate bin", labels = rep(c('Low Precip.', 'Mid Precip.','High Precip.'), 3)) +
@@ -153,7 +222,9 @@ g<-gtable_add_grob(g, grobTree(textGrob(expression(paste(underline("Low Temperat
 
 grid.draw(g) 
 
-#### INFORMATION CRITERIONS ####
+
+
+#### TABLE 1: INFORMATION CRITERIONS ####
 
 IC <- read.csv('./Cluster/stan/output/feb2018_better/ICs.csv')
 library(tidyr)
