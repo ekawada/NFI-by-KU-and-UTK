@@ -88,3 +88,24 @@ ggplot(ICs, aes(x = model, y = looic - best_looic, color = factor(species), grou
 ggplot(ICs, aes(x = model, y = waic - best_waic, color = factor(species), group = factor(species))) + 
   geom_line() +
   geom_point(data = subset(ICs, waic == best_waic))
+
+
+# Added 22 Feb.
+# Extract T coefficients from model summaries
+
+t_list <- list()
+
+for (i in 4:5) {
+  for (j in 1:7) {
+    t_list[[length(t_list) + 1]] <- c(model = i, species = j, neigh_summ[[i]][[j]][[1]]["T", ]) 
+ 
+  }
+}
+
+t_list <- do.call(rbind, t_list)
+t_list <- as.data.frame(t_list)
+names(t_list)[6:10] <- c('q025','q25','q50','q75','q975')
+
+library(ggplot2)
+ggplot(t_list, aes(x=species,y=q50,ymin=q025,ymax=q975)) +
+  geom_pointrange() + facet_wrap(~ model, scales = 'free')
