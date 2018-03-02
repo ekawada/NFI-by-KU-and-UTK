@@ -3,6 +3,7 @@
 library(ggplot2)
 library(dplyr)
 library(ggthemes)
+library(plyr)
 
 #### DISTRIBUTION FIGS ####
 
@@ -37,14 +38,15 @@ ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS1.pdf', hei
 gg <- ggplot() 
 gg <- gg + geom_map(data=no, map=no, aes(map_id=region), color="darkgrey", fill="white", size=0.5)
 gg <- gg + geom_point(data=dat, aes(x=long, y=lat), color="black", fill="darkgrey", size=0.5, alpha=1/10) + 
-  coord_equal() + theme_bw() + theme(legend.position="none") + 
+  coord_equal() + theme_bw() + #theme(legend.position="none") + 
   theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none') +
   xlab("Longitude") + ylab("Latitude")
 gg
 
 ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig11.pdf', height=7,width=6,dpi=400)
 
-
+detach('package:plyr', unload=T)
+source('~/Dropbox/Projects/Norway Forests/nfi/Code/scale_figs.r')
 datd <- dat %>% group_by(long, lat, plotID) %>% filter(year == max(year)) %>% summarize(stems=n())
 no<-map_data("world", region="Norway(?!:Svalbard)")
 gg <- ggplot() 
@@ -54,13 +56,14 @@ gg <- gg + geom_hex(stat="binhex", data=datd, aes(x=long, y=lat, col=stems), bin
   scale_bar(lon = 20, lat = 59,
             distance_lon = 50, distance_lat = 10,
             distance_legend = 50, dist_unit = "km", orientation = FALSE) +
-  theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none') +
+  theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), 
+        panel.grid.major = element_blank(),panel.grid.minor = element_blank()) +
   xlab("Longitude") + ylab("Latitude")+
-  scale_fill_gradient(low = "grey", high = "black")
+  scale_fill_gradient(low = "white", high = "black") 
 gg
 
 ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig1.pdf', height=6,width=8,dpi=400)
-
+count(unique(datd$plotID))
 
 #Older version with points
 gg <- gg + geom_point(data=datd, aes(x=long, y=lat, size=stems/1000), color='black', alpha=0.25) + 
@@ -72,8 +75,47 @@ gg <- gg + geom_point(data=datd, aes(x=long, y=lat, size=stems/1000), color='bla
   xlab("Longitude") + ylab("Latitude") 
 
 #### CLIMATE FIGS ####
-# Load summaries
+
 setwd('~/Dropbox/Projects/Norway Forests/nfi')
+
+#### Load overall summaries
+load('Cluster/stan/output/feb2018_better/binall_summ.r')
+
+binsumall <- as.data.frame(summ[[1]][grep('beta', row.names(summ[[1]])), ])
+binsumall$parname <- row.names(binsumall)
+
+names(binsumall)[4:8] <- c('q025','q25','q50','q75','q975')
+
+hl <- geom_hline(linetype='dotted', color='darkgrey', yintercept = 0)
+th <- theme_bw() + theme(text = element_text(family = 'Helvetica'), strip.background = element_blank(), legend.position = 'none')
+scm <- scale_color_manual(values = c('FALSE'='darkgrey','TRUE'="black"))
+
+spnames <- c('P. abies','P. sylvestris','B. pubescens','P. tremula','Quercus sp.','A. incana','S. aucuparia','Other hardwood')
+spnumnames <- c('1'='P. abies','2'='P. sylvestris','3'='B. pubescens','4'='P. tremula','5'='Quercus sp.','6'='A. incana','7'='S. aucuparia','8'='Other hardwood')
+
+dodge <- position_dodge(width=1.5)
+
+binsumall$species <- factor(stringr::str_extract_all(binsumall$parname, pattern='[0-9]', simplify=TRUE), levels = as.character(8:1))
+binsumall$parname <- gsub('.{3}$', '', binsumall$parname)
+
+# Set colors for points
+binsumall <- mutate(binsumall, 
+                    parname = factor(parname, levels = c('beta_size', 'beta_temp', 'beta_prec')),
+                    not_zero = (q025<0 & q975<0) | (q025>0 & q975>0))
+
+#Figure 2
+pall <- ggplot(binsumall, aes(x=species, ymin=q025, y=q50, ymax=q975)) +
+  geom_hline(yintercept=0, linetype = 'dotted') +
+  hl + scm +
+  geom_pointrange(aes(color = not_zero), position=dodge) + th +
+  coord_flip() +
+  scale_x_discrete(name = 'Species', labels=spnumnames) +
+  labs(y = 'Parameter estimate') +
+  facet_grid(~ parname, labeller = labeller(parname = c('beta_size' = 'Tree Size', 'beta_temp' = 'Temperature', 'beta_prec' = 'Precipitation')))
+pall
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig2.pdf', height=6,width=7,dpi=400)
+
+#### Load individual summaries
 binsum <- list()
 
 for (i in 1:9) {
@@ -81,12 +123,12 @@ for (i in 1:9) {
   binsum[[i]] <- summ
 }
 
-tempbin <- rep(c('lowt','midt','hight'),each=3)
+tempbin <- rep(c('lowt','midt','hight'),each=3) #change to include "all" for both
 precipbin <- rep(c('lowp','midp','highp'),times=3)
 
 binsumabbr <- list()
 
-for (i in 1:9) {
+for (i in 1:9) { 
   binsumabbr[[i]] <- as.data.frame(binsum[[i]][[1]][grep('beta|gamma|lambda', row.names(binsum[[i]][[1]])), ])
   binsumabbr[[i]]$tempbin <- tempbin[i]
   binsumabbr[[i]]$precipbin <- precipbin[i]
@@ -222,6 +264,56 @@ g<-gtable_add_grob(g, grobTree(textGrob(expression(paste(underline("Low Temperat
 
 grid.draw(g) 
 
+
+
+
+#### T COEFFICIENTS ####
+# Read neighbor model summaries in
+fp <- 'Cluster/stan/output/feb2018_better'
+
+dir(file.path(fp, 'neigh_summary'))
+
+neigh_summ <- replicate(5, list())
+
+for (i in 1:5) {
+  for (j in 1:7) {
+    load(file.path(fp, 'neigh_summary', paste0('dat',j,'mod',i,'_summ.r')))
+    neigh_summ[[i]][[j]] <- summ
+  }
+}
+
+# Extract T coefficients from model summaries
+
+t_list <- list()
+
+for (i in 4:5) {
+  for (j in 1:7) {
+    t_list[[length(t_list) + 1]] <- c(model = i, species = j, neigh_summ[[i]][[j]][[1]]["T", ]) 
+    
+  }
+}
+
+t_list <- do.call(rbind, t_list)
+t_list <- as.data.frame(t_list)
+names(t_list)[6:10] <- c('q025','q25','q50','q75','q975')
+t_list <- mutate(t_list,
+                    not_zero = (q025<0 & q975<0) | (q025>0 & q975>0)
+)
+
+spnames <- c('P. abies','P. sylvestris','B. pubescens','P. tremula','Quercus sp.','A. incana','S. aucuparia')
+spnumnames <- c('1'='P. abies','2'='P. sylvestris','3'='B. pubescens','4'='P. tremula','5'='Quercus sp.','6'='A. incana','7'='S. aucuparia')
+t_list$species <- factor(stringr::str_extract_all(t_list$species, pattern='[0-7]', simplify=TRUE), levels = as.character(7:1))
+
+ggplot(t_list, aes(x=species, ymin=q025, y=q50, ymax=q975)) +
+  geom_hline(yintercept=0, linetype = 'dotted') +
+  hl + scm +
+  geom_pointrange(aes(color = not_zero), position=dodge) + th +
+  coord_flip() +
+  scale_x_discrete(name= 'Species', labels=spnumnames) +
+  labs(y = 'Parameter estimate') +
+  facet_grid(~ model, labeller = labeller(model = c('4' = 'Relative fitness differences', '5' = 'Stabilizing niche differences')))
+
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig5.pdf', height=6,width=6,dpi=400)
 
 
 #### TABLE 1: INFORMATION CRITERIONS ####
