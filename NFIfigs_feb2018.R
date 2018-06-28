@@ -33,7 +33,7 @@ gg <- gg + geom_point(data=dat, aes(x=long, y=lat), color="black", fill="darkgre
   xlab("Longitude") + ylab("Latitude") + facet_wrap(~spname, ncol = 2) 
 gg
 
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS1.pdf', height=7,width=4,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS1.pdf', height=7,width=4,dpi=400)
 
 gg <- ggplot() 
 gg <- gg + geom_map(data=no, map=no, aes(map_id=region), color="darkgrey", fill="white", size=0.5)
@@ -43,7 +43,7 @@ gg <- gg + geom_point(data=dat, aes(x=long, y=lat), color="black", fill="darkgre
   xlab("Longitude") + ylab("Latitude")
 gg
 
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig11.pdf', height=7,width=6,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig11.pdf', height=7,width=6,dpi=400)
 
 detach('package:plyr', unload=T)
 source('~/Dropbox/Projects/Norway Forests/nfi/Code/scale_figs.r')
@@ -62,7 +62,7 @@ gg <- gg + geom_hex(stat="binhex", data=datd, aes(x=long, y=lat, col=stems), bin
   scale_fill_gradient(low = "white", high = "black") 
 gg
 
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig1.pdf', height=6,width=8,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig1.pdf', height=6,width=8,dpi=400)
 count(unique(datd$plotID))
 
 #Older version with points
@@ -113,7 +113,7 @@ pall <- ggplot(binsumall, aes(x=species, ymin=q025, y=q50, ymax=q975)) +
   labs(y = 'Parameter estimate') +
   facet_grid(~ parname, labeller = labeller(parname = c('beta_size' = 'Tree Size', 'beta_temp' = 'Temperature', 'beta_prec' = 'Precipitation')))
 pall
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig2.pdf', height=6,width=7,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig2.pdf', height=6,width=7,dpi=400)
 
 #### Load individual summaries
 binsum <- list()
@@ -177,7 +177,7 @@ pbetasize <- ggplot(subset(binsumall, grepl('beta_size', parname)), aes(y = q50,
   facet_grid(tempbin ~ precipbin, labeller=binlab) +
   coord_flip() 
 pbetasize
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS4.pdf', height=6,width=7,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS4.pdf', height=6,width=7,dpi=400)
 
 #Fig S2
 pbetatemp <- ggplot(subset(binsumall, grepl('beta_temp', parname)), aes(x=species, ymin=q025, y=q50, ymax=q975)) +
@@ -189,7 +189,7 @@ pbetatemp <- ggplot(subset(binsumall, grepl('beta_temp', parname)), aes(x=specie
   facet_grid(tempbin ~ precipbin, labeller=binlab) +
   coord_flip() 
 pbetatemp
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS2.pdf', height=6,width=7,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS2.pdf', height=6,width=7,dpi=400)
 
 #Fig S3
 pbetaprec <- ggplot(subset(binsumall, grepl('beta_prec', parname)), aes(x=species, ymin=q025, y=q50, ymax=q975)) +
@@ -202,7 +202,7 @@ pbetaprec <- ggplot(subset(binsumall, grepl('beta_prec', parname)), aes(x=specie
   coord_flip() 
 pbetaprec
 
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS3.pdf', height=6,width=7,dpi=400)
+#ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/FigS3.pdf', height=6,width=7,dpi=400)
 
 
 #### COMPETITION COEFFICIENTS ####
@@ -306,17 +306,18 @@ t_list$species <- factor(stringr::str_extract_all(t_list$species, pattern='[0-7]
 
 ggplot(t_list, aes(x=species, ymin=q025, y=q50, ymax=q975)) +
   geom_hline(yintercept=0, linetype = 'dotted') +
-  hl + scm +
+  hl + scm + 
   geom_pointrange(aes(color = not_zero), position=dodge) + th +
   coord_flip() +
   scale_x_discrete(name= 'Species', labels=spnumnames) +
   labs(y = 'Parameter estimate') +
-  facet_grid(~ model, labeller = labeller(model = c('4' = 'Relative fitness differences', '5' = 'Stabilizing niche differences')))
+  theme(panel.spacing = unit(1, "lines")) + 
+  facet_grid(~ model, scales='free', labeller = labeller(model = c('4' = 'Relative fitness differences', '5' = 'Stabilizing niche differences')))
 
-ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig5.pdf', height=6,width=6,dpi=400)
+ggsave('~/Dropbox/Projects/Norway Forests/nfi/manuscript/Feb2018/Fig5.pdf', height=6,width=7,dpi=400)
 
 
-#### TABLE 1: INFORMATION CRITERIONS ####
+ #### TABLE 1: INFORMATION CRITERIONS ####
 
 IC <- read.csv('./Cluster/stan/output/feb2018_better/ICs.csv')
 library(tidyr)
